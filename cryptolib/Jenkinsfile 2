@@ -1,0 +1,75 @@
+pipeline {
+
+    agent any
+
+    tools {
+        jdk 'java11'
+    }
+
+    stages {
+
+        stage('Continuous Integration') {
+
+            stages {
+
+                stage('Fetch from SCM') {
+
+                    steps {
+                        checkout scm
+                    }
+
+                }
+
+                stage('Build') {
+                    steps {
+                        dir("cryptolib/") {
+                            sh '''
+                                chmod +x gradlew
+                                ./gradlew clean build
+                            '''
+                        }
+                    }
+                }
+
+                stage('Test') {
+                    steps {
+                        dir("cryptolib/") {
+                            sh '''
+                                ./gradlew test
+                            '''
+                        }
+                    }
+                }
+
+                stage("SonarQube analysis") {
+                    steps{
+                        dir("cryptolib") {
+                            withSonarQubeEnv('sonarqube') {
+                                sh '''
+                                    ./gradlew sonarqube
+                                '''
+                            }
+                        }
+                    }
+                }
+                
+                stage("Quality Gate") {
+                    steps {
+                        sh 'sleep 5'
+                        waitForQualityGate abortPipeline: true
+                    }
+                }
+            }
+
+            post {
+                always {
+                    junit 'cryptolib/build/test-results/**/*.xml'
+                    recordIssues(tools: [spotBugs(pattern: 'cryptolib/build/reports/spotbugs/*.xml')])
+                    cleanWs()
+                }
+            }
+
+        }
+
+    }
+}

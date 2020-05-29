@@ -1,0 +1,40 @@
+
+swagger: "2.0"
+info:
+  version: "1.0.1"
+  title: "SC-KMS "
+host: "pds.stardust:9990"
+basePath: "/api/kms/"
+schemes:
+- "https"
+paths:
+  /keys/dek:
+    get:
+      tags: 
+        - keys
+      summary: Get the Data Encryption Key (DEK)
+      responses:
+        200:
+          description: The base 64 encoded DEK
+          schema:
+            $ref: '#/definitions/DekResponse'
+  /keys/rotate:
+    post:
+      tags: 
+        - keys
+      summary: Get the Data Encryption Key (DEK)
+      responses:
+        200:
+          description: Key rotation has succeed
+  
+
+definitions:
+  DekResponse:
+    description: Response containing the DEK
+    type: object
+    properties:
+      data: 
+        type: string
+        description: The base 64 encoded DEK
+
+

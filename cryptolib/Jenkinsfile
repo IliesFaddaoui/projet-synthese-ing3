@@ -1,0 +1,87 @@
+pipeline {
+
+    agent any
+
+    environment {
+        NEXUS_CREDENTIALS = credentials('nexus')
+    }
+
+    tools {
+        jdk 'java11'
+        gradle 'gradle'
+    }
+
+    stages {
+
+        stage('Continuous Integration') {
+
+            stages {
+
+                stage('Fetch from SCM') {
+
+                    steps {
+                        checkout scm
+                    }
+
+                }
+
+                stage('Build') {
+                    steps {
+                        dir("cryptolib/") {
+                            sh 'gradle clean build -x test -PrepoUser=$NEXUS_CREDENTIALS_USR -PrepoPassword=$NEXUS_CREDENTIALS_USR'
+                        }
+                    }
+                }
+
+                stage('Test') {
+                    steps {
+                        dir("cryptolib/") {
+                            sh 'gradle test -PrepoUser=$NEXUS_CREDENTIALS_USR -PrepoPassword=$NEXUS_CREDENTIALS_USR'
+                        }
+                    }
+                }
+
+                stage("SonarQube analysis") {
+                    steps{
+                        dir("cryptolib") {
+                            withSonarQubeEnv('sonarqube') {
+                                sh 'gradle sonarqube -PrepoUser=$NEXUS_CREDENTIALS_USR -PrepoPassword=$NEXUS_CREDENTIALS_USR'
+                            }
+                        }
+                    }
+                }
+                
+                stage("Quality Gate") {
+                    steps {
+                        sh 'sleep 5'
+                        waitForQualityGate abortPipeline: true
+                    }
+                }
+            }
+
+            post {
+                always {
+                    publishHTML (target : [allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'cryptolib/build/reports/tests/test',
+                        reportFiles: 'index.html',
+                        reportName: 'Tests report',
+                        reportTitles: 'Tests report'])
+
+                    publishHTML (target : [allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'cryptolib/build/reports/jacoco/test/html',
+                        reportFiles: 'index.html',
+                        reportName: 'Jacoco coverage report',
+                        reportTitles: 'Jacoco coverage report'])
+                        
+                    recordIssues(tools: [spotBugs(pattern: 'cryptolib/build/reports/spotbugs/*.xml')])
+                }
+            }
+
+        }
+
+    }
+}
